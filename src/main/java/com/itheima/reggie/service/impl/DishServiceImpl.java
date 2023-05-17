@@ -14,19 +14,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements DishService {
+public class DishServiceImpl extends ServiceImpl<DishMapper, Dish> implements DishService {
 
     @Autowired
     private DishFlavorService dishFlavorService;
 
+    @Autowired
+    private DishMapper dishMapper;
+
     /**
      * 新增菜品，同时保存对应的口味数据
+     *
      * @param dishDto
      */
     @Transactional
@@ -50,6 +54,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements Dis
 
     /**
      * 根据id查询菜品信息和对应的口味信息
+     *
      * @param id
      * @return
      */
@@ -58,11 +63,11 @@ public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements Dis
         Dish dish = this.getById(id);
 
         DishDto dishDto = new DishDto();
-        BeanUtils.copyProperties(dish,dishDto);
+        BeanUtils.copyProperties(dish, dishDto);
 
         //查询当前菜品对应的口味信息，从dish_flavor表查询
         LambdaQueryWrapper<DishFlavor> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(DishFlavor::getDishId,dish.getId());
+        queryWrapper.eq(DishFlavor::getDishId, dish.getId());
         List<DishFlavor> flavors = dishFlavorService.list(queryWrapper);
         dishDto.setFlavors(flavors);
 
@@ -77,7 +82,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements Dis
 
         //清理当前菜品对应口味数据---dish_flavor表的delete操作
         LambdaQueryWrapper<DishFlavor> queryWrapper = new LambdaQueryWrapper();
-        queryWrapper.eq(DishFlavor::getDishId,dishDto.getId());
+        queryWrapper.eq(DishFlavor::getDishId, dishDto.getId());
 
         dishFlavorService.remove(queryWrapper);
 
@@ -91,4 +96,26 @@ public class DishServiceImpl extends ServiceImpl<DishMapper,Dish> implements Dis
 
         dishFlavorService.saveBatch(flavors);
     }
+
+    public int updateBatchStatusByIds(Integer status, String ids) {
+        List<Long> idList = Arrays.stream(ids.split(","))
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        // UpdateWrapper<Dish> updateWrapper = new UpdateWrapper<>();
+        // updateWrapper.in("id", idList)
+        //         .set("status", status);
+        // this.update(updateWrapper);
+
+        return dishMapper.updateBatchStatusByIds(status, idList);
+    }
+
+    public boolean deleteBatchByIds(String ids) {
+        List<Long> idList = Arrays.stream(ids.split(","))
+                .map(Long::parseLong)
+                .collect(Collectors.toList());
+
+        return this.removeByIds(idList);
+    }
+
 }

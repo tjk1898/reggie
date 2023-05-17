@@ -19,4 +19,4 @@ mybatis-plus:
     db-config:
       id-type: ASSIGN_ID
 reggie:
-  path: /usr/share/nginx/manager/images/dishes/
+  path: /usr/share/nginx/images/dishes/

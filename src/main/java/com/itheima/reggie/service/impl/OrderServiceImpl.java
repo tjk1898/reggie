@@ -9,6 +9,7 @@ import com.itheima.reggie.entity.*;
 import com.itheima.reggie.mapper.OrderMapper;
 import com.itheima.reggie.service.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
     /**
      * 用户下单
+     *
      * @param orders
      */
     @Transactional
@@ -46,10 +48,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
         //查询当前用户的购物车数据
         LambdaQueryWrapper<ShoppingCart> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ShoppingCart::getUserId,userId);
+        wrapper.eq(ShoppingCart::getUserId, userId);
         List<ShoppingCart> shoppingCarts = shoppingCartService.list(wrapper);
 
-        if(shoppingCarts == null || shoppingCarts.size() == 0){
+        if (shoppingCarts == null || shoppingCarts.size() == 0) {
             throw new CustomException("购物车为空，不能下单");
         }
 
@@ -59,7 +61,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
         //查询地址数据
         Long addressBookId = orders.getAddressBookId();
         AddressBook addressBook = addressBookService.getById(addressBookId);
-        if(addressBook == null){
+        if (addressBook == null) {
             throw new CustomException("用户地址信息有误，不能下单");
         }
 
@@ -104,5 +106,40 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Orders> implement
 
         //清空购物车数据
         shoppingCartService.remove(wrapper);
+    }
+
+    /**
+     * 再来一单
+     * @param orders 老订单，只使用订单id
+     */
+    @Override
+    public void submitAgain(Orders orders) {
+        // 获取老订单
+        Orders oldOrders = this.getById(orders.getId());
+        // 用老订单生成新订单
+        long newOrderId = IdWorker.getId();
+        Orders newOrder = new Orders();
+        BeanUtils.copyProperties(oldOrders, newOrder);
+        newOrder.setId(newOrderId);
+        newOrder.setOrderTime(LocalDateTime.now());
+        newOrder.setCheckoutTime(LocalDateTime.now());
+        newOrder.setStatus(2);
+        orders.setNumber(String.valueOf(newOrderId));
+
+        // 获取老订单的订单详情
+        LambdaQueryWrapper<OrderDetail> queryWrap = new LambdaQueryWrapper();
+        queryWrap.eq(OrderDetail::getOrderId, orders.getId());
+        List<OrderDetail> orderDetails = orderDetailService.list(queryWrap);
+
+        // 修改订单详情的id和订单id
+        orderDetails.stream().map((item) -> {
+            item.setId(IdWorker.getId());
+            item.setOrderId(newOrderId);
+            return item;
+        }).collect(Collectors.toList());
+
+        // 将订单和订单详情存入数据库
+        this.save(orders);
+        orderDetailService.saveBatch(orderDetails);
     }
 }
